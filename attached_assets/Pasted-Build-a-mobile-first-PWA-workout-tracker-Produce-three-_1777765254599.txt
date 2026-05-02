@@ -1,0 +1,231 @@
+Build a mobile-first PWA workout tracker. Produce three files:
+index.html (all CSS + JS inline), sw.js, manifest.json.
+Plain HTML/CSS/JS only — no frameworks, no build tools.
+One external resource allowed: Google Fonts (Outfit).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+WORKOUT DATA
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const workoutsData = {
+  upper: {
+    title: 'Upper Body Workout',
+    exercises: [
+      {
+        id: 'ex1',
+        title: 'A. Flat DB/Barbell Bench Press',
+        desc: 'Control weight down, explode up. Too easy at 10 reps? Go heavier. (90 sec rest)',
+        sets: 3, restSeconds: 90,
+        substitutes: ['Incline DB Press','Cable Chest Fly',
+                      'Machine Chest Press','Weighted Push-Up']
+      },
+      {
+        id: 'ex2',
+        title: 'B. Bent-Over DB/Barbell Rows',
+        desc: 'Pull weight to hip crease to engage lats. Squeeze at top.',
+        sets: 3, restSeconds: 90,
+        substitutes: ['Seated Cable Row','Single-Arm DB Row',
+                      'Chest-Supported Row','Machine Row']
+      },
+      {
+        id: 'ex3',
+        title: 'C. Incline Dumbbell Press',
+        desc: 'Set bench to 30-deg. Keep continuous tension on upper chest. (60 sec rest)',
+        sets: 3, restSeconds: 60,
+        substitutes: ['Flat DB Press','Cable Upper Chest Fly',
+                      'Smith Machine Incline Press','Incline Push-Up']
+      },
+      {
+        id: 'ex4',
+        title: 'D. Lat Pulldowns (or Pull-ups)',
+        desc: 'Full stretch at top. Drive elbows down to the floor.',
+        sets: 3, restSeconds: 90,
+        substitutes: ['Pull-ups','Assisted Pull-up Machine',
+                      'Straight-Arm Cable Pulldown','Single-Arm Cable Pulldown']
+      },
+      {
+        id: 'ex5',
+        title: 'E1. Dumbbell Bicep Curls',
+        desc: 'Superset into E2. Keep elbows pinned to sides. (No rest)',
+        sets: 3, restSeconds: 0, supersetWith: 'ex6',
+        substitutes: ['Cable Bicep Curl','EZ-Bar Curl',
+                      'Hammer Curl','Concentration Curl']
+      },
+      {
+        id: 'ex6',
+        title: 'E2. Overhead Triceps Ext.',
+        desc: 'Full lockout at top to maximally contract triceps.',
+        sets: 3, restSeconds: 60, supersetWith: 'ex5',
+        substitutes: ['Tricep Rope Pushdown','Close-Grip Push-Up',
+                      'Skull Crusher','Single-Arm Cable Pushdown']
+      }
+    ]
+  },
+  lower: {
+    title: 'Lower Body Workout',
+    exercises: [
+      {
+        id: 'lower1',
+        title: '1. Dumbbell Romanian Deadlift (RDL)',
+        desc: '8-10 reps. 3-sec lowering phase. Eccentric overload for hamstrings.',
+        sets: 3, restSeconds: 90,
+        substitutes: ['Cable Pull-Through','Single-Leg RDL',
+                      'Barbell RDL','Nordic Hamstring Curl']
+      },
+      {
+        id: 'lower2',
+        title: '2. Dumbbell Reverse Lunges',
+        desc: '8-10 reps/leg. Controlled step back, explosive drive up.',
+        sets: 3, restSeconds: 60,
+        substitutes: ['Split Squat','Bulgarian Split Squat',
+                      'Step-Ups','Goblet Squat']
+      },
+      {
+        id: 'lower3',
+        title: '3. Weighted Glute Bridges',
+        desc: '12-15 reps. 2-sec hold at top. Pure hip extension.',
+        sets: 3, restSeconds: 45,
+        substitutes: ['Hip Thrust (bench)','Cable Kickback',
+                      'Donkey Kick','Single-Leg Glute Bridge']
+      }
+    ]
+  }
+};
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+DESIGN SYSTEM — preserve exactly
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CSS variables:
+  --bg:        #0b0c10
+  --surface:   rgba(31,33,42,0.6)
+  --border:    rgba(255,255,255,0.08)
+  --primary:   #00e5ff
+  --glow:      rgba(0,229,255,0.4)
+  --text:      #ffffff
+  --muted:     #9ba1b0
+  --success:   #2eeb7c
+  --warning:   #FF9800
+  --danger:    #ff3b30
+
+Font: Outfit (Google Fonts), weights 300 400 500 600 700
+Background: two animated blur blobs (teal top-left, purple bottom-right)
+Cards: glassmorphism — backdrop-filter:blur(12px), border-radius:16px
+Checkbox: punchIn animation (scale 0.5+rotate → 1, opacity 0→1)
+Progress: SVG ring + linear gradient progress bar
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+LOCALSTORAGE SCHEMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Key: 'wt_sessions' — array of Session:
+  { id, workoutId, workoutTitle, startedAt, completedAt,
+    exercises: [{ exerciseId, exerciseTitle, customNameUsed,
+      sets: [{ setNumber, lbs, reps, done }] }],
+    totalVolume, totalSetsCompleted }
+
+Key: 'wt_active' — mid-session state:
+  { workoutId, startedAt, sets: { exId_setNum: {lbs,reps,done} },
+    substitutions: { exId: customTitle } }
+
+On load: if old key 'workoutHistory' exists, migrate entries to
+'wt_sessions' with exercises:[] and totalVolume:0, then delete old key.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 1: HOME
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+App title header at top (gradient text style).
+Two full-width workout cards stacked vertically.
+
+Each card shows:
+- Workout name (large, white, semibold)
+- "Last session: X days ago" or "Never done" (pull from wt_sessions)
+- "Last volume: X,XXX lbs" (omit if no history)
+- Card border color based on recency:
+    green (#2eeb7c)  = within 4 days
+    warning (#FF9800) = 5–8 days ago
+    danger (#ff3b30)  = 9+ days or never
+- Small "OVERDUE" badge on whichever card has the longer gap
+  (only if both have been done at least once)
+
+Tapping a card starts that workout. No intermediate screen.
+"History" text link centered at bottom of screen.
+Settings gear icon (⚙) top-right corner of header.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 2: ACTIVE WORKOUT
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Preserve from existing:
+- Workout title + SVG progress ring (% sets done)
+- Linear progress bar
+- Glassmorphism exercise cards
+- Exercise title + coaching note
+- SET / LBS / REPS / DONE table
+- punchIn checkbox animation
+- Card success state when all sets complete
+
+ADD these features:
+
+LAST SESSION LINE:
+Between coaching note and table header, one muted line (13px):
+  "Last: 3×8 @ 65 lbs · Apr 28"
+Pull from most recent completed session with this exerciseId.
+Show "First time — no history yet" if none.
+
+ADD SET:
+Below last row in each card: "+ Add Set" row with dashed border.
+Tap appends new row pre-filled from row above. No max limit.
+
+EXERCISE SUBSTITUTION:
+Pencil icon (✏) right of exercise title, 44×44px tap target.
+Tap slides up a bottom sheet:
+  - Editable input showing current exercise name (font-size:16px)
+  - "Substitutes:" tappable chips from substitutes array
+  - Chip tap fills input
+  - "Save for this session" primary button
+  - Tap backdrop to dismiss
+  Saves customTitle to wt_active.substitutions[exId].
+  Resets next session.
+
+SUPERSET GROUP:
+ex5 + ex6 wrapped in shared container labeled "SUPERSET" with
+primary-color left border accent.
+
+STICKY FINISH BAR:
+Fixed bottom bar always visible showing "X / Y sets done" and
+[Finish Workout] button. Button is muted when X < Y, primary/success
+when X === Y. Tap when incomplete: inline slide-in confirmation banner
+above bar ("X sets not logged — Finish anyway?" [Cancel] [Finish]).
+No alert() or confirm() anywhere.
+
+HEADER: back arrow (←) left of title navigates to home.
+Remove Reset button and Change Workout button.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+MOBILE REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Viewport: <meta name="viewport" content="width=device-width,
+  initial-scale=1.0, viewport-fit=cover">
+Height: 100dvh
+Safe area — sticky bar: padding-bottom:max(16px,env(safe-area-inset-bottom))
+Safe area — header: padding-top:max(12px,env(safe-area-inset-top))
+All inputs: font-size:16px, inputmode="decimal"
+On focus select all: input.addEventListener('focus',e=>e.target.select())
+Touch: -webkit-tap-highlight-color:transparent
+Active states: all buttons scale(0.96) on :active
+Bottom sheet: position fixed, max-height:65vh, slides up translateY animation,
+  border-radius:20px 20px 0 0, padding-bottom:max(24px,env(safe-area-inset-bottom))
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT FOR THIS PROMPT
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Produce index.html with Home and Active Workout screens fully functional.
+Leave placeholder divs for: Workout Complete, History, Settings screens
+(these will be completed in Prompt 2 — just stub them with "Coming soon").
+Service worker and manifest not needed yet.
+All CSS and JS must be inline in index.html.
+Zero alert() or confirm() calls.

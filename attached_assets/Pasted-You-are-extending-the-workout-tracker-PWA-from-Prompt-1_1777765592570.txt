@@ -1,0 +1,116 @@
+You are extending the workout tracker PWA from Prompt 1.
+The existing index.html already has Home and Active Workout screens.
+Add the three remaining screens and finalize for PWA deployment.
+Replace placeholder stubs with full implementations.
+Preserve all existing CSS, design tokens, and workout data exactly.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 3: WORKOUT COMPLETE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Shown after Finish Workout is confirmed.
+
+Display:
+- Large checkmark with subtle scale+fade-in animation (restrained — no confetti)
+- Workout name and today's date/time
+- Total sets completed
+- Total volume: sum of (lbs × reps) for all done sets, formatted "9,240 lbs"
+- Volume vs last session of same workout type:
+    "↑ 420 lbs more than last session"  (success color)
+    "↓ 180 lbs less than last session"  (warning color)
+    "First session — no comparison"     (muted)
+- Substitutions used this session (if any):
+    "Swapped: Cable Row for Bent-Over Rows"
+- [Done] button → home screen
+- [Download CSV] button → triggers CSV download of this session's data
+
+Also auto-save the completed session to wt_sessions on arrival at this screen.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 4: HISTORY & CONSISTENCY
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Accessible via "History" link on home screen and back arrow in header.
+
+TOP SECTION — CONSISTENCY CALENDAR:
+
+8-week rolling grid. 7 columns (days of week) × 8 rows = 56 tiles.
+Each tile: 36×36px, border-radius:6px, 4px gap, CSS Grid layout.
+Tile with session: fill color #00e5ff, opacity scaled 0.3→1.0 by
+  volume relative to max volume in the 56-day window.
+Tile without session: background var(--border).
+Tapping a filled tile: show small fixed banner at top of screen
+  (not a native tooltip) with workout name + volume + date.
+  Banner auto-dismisses after 2.5 seconds.
+
+Above grid, two stat lines:
+  "X sessions in the last 4 weeks"
+  "X,XXX lbs lifted this month"
+
+BOTTOM SECTION — SESSION LIST:
+
+Filter pills: All | Upper | Lower  (pill tabs, --primary active state)
+
+Each session row (collapsed by default):
+  - Workout title  |  Date + time  |  Total volume  |  Sets count
+
+Tap row to expand inline showing full exercise log:
+  For each exercise: name, then each set → set#, lbs, reps, done checkmark
+  Old migrated sessions (no set data): show "Pre-upgrade session — no set data"
+
+Per-session [Download CSV] button.
+
+[Clear All History] danger button at bottom.
+On tap: inline slide-in confirmation banner ("Delete all X sessions? This
+cannot be undone." [Cancel] [Delete All]). No confirm() dialog.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 5: SETTINGS
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Accessible via ⚙ icon in home screen header.
+
+Two settings only:
+1. Units toggle — lbs / kg
+   Toggle pill UI. Stored in wt_settings.units.
+   'lbs' is default. When 'kg' selected, all lbs display values
+   convert for display only (÷ 2.205). Stored values stay in lbs.
+2. Clear all data — danger-btn "Reset App"
+   Inline confirmation banner (same pattern as above). No confirm().
+
+Back arrow returns to home.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PWA FINALIZATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+sw.js — service worker:
+  Cache name: 'workout-tracker-v2'
+  On install: cache ['./','./index.html','./sw.js','./manifest.json']
+  Fetch strategy: cache-first, fallback to network
+  On activate: delete caches not named 'workout-tracker-v2'
+
+manifest.json:
+  { "name":"Workout Tracker", "short_name":"Workouts",
+    "display":"standalone", "orientation":"portrait-primary",
+    "theme_color":"#0b0c10", "background_color":"#0b0c10",
+    "start_url":"./" }
+
+Add to index.html <head>:
+  <link rel="manifest" href="./manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <script>
+    if('serviceWorker' in navigator)
+      navigator.serviceWorker.register('./sw.js');
+  </script>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Deliver the COMPLETE updated index.html (not a diff, the full file),
+plus sw.js and manifest.json.
+All three screens must be fully functional, not stubbed.
+Zero alert() or confirm() calls anywhere.
+All CSS and JS inline in index.html.
