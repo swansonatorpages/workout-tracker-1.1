@@ -301,6 +301,7 @@ const styles = StyleSheet.create({
   colNum: {
     flex: 1,
     minWidth: 0,
+    paddingHorizontal: 3,
   },
   colDone: {
     width: 54,
@@ -328,14 +329,12 @@ const styles = StyleSheet.create({
   input: {
     width: '100%',
     color: '#ffffff',
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'Outfit_500Medium',
     textAlign: 'center',
     backgroundColor: 'rgba(255,255,255,0.07)',
     borderRadius: 12,
     paddingVertical: 14,
-    paddingHorizontal: 4,
-    marginHorizontal: 4,
     minHeight: 52,
   },
   checkboxTap: {
