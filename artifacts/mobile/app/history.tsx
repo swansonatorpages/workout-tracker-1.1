@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ConsistencyCalendar } from '@/components/ConsistencyCalendar';
+import { VolumeChart } from '@/components/VolumeChart';
 import { useWorkout } from '@/context/WorkoutContext';
 import { downloadSessionCSV } from '@/utils/csv';
 import { WORKOUTS } from '@/constants/workouts';
@@ -316,6 +317,14 @@ export default function HistoryScreen() {
               <ConsistencyCalendar sessions={sessions} units={settings.units} />
             </View>
 
+            {/* Volume trend */}
+            {sessions.length > 1 && (
+              <View style={styles.chartSection}>
+                <Text style={styles.sectionLabel}>VOLUME TREND — LAST 8 SESSIONS</Text>
+                <VolumeChart sessions={sessions} units={settings.units} />
+              </View>
+            )}
+
             <View style={styles.divider} />
 
             {/* Filter pills */}
@@ -481,6 +490,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   calendarSection: {
+    marginBottom: 20,
+  },
+  chartSection: {
     marginBottom: 20,
   },
   sectionLabel: {
