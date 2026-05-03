@@ -32,11 +32,14 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Label that appears under the icon on the home screen */}
         <meta name="apple-mobile-web-app-title" content="Workout" />
 
-        {/* High-res home screen icon (iOS uses the largest available) */}
+        {/*
+          Home screen icon — file lives in public/ so Expo copies it to the
+          dist root as-is (no hash). iOS uses this for the home screen icon.
+        */}
         <link
           rel="apple-touch-icon"
           sizes="512x512"
-          href="/workout-tracker-1.1/assets/images/pwa-icon-512.png"
+          href="/workout-tracker-1.1/apple-touch-icon.png"
         />
 
         {/*
@@ -48,17 +51,17 @@ export default function Root({ children }: PropsWithChildren) {
         <link
           rel="apple-touch-startup-image"
           media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
-          href="/workout-tracker-1.1/assets/images/pwa-icon-512.png"
+          href="/workout-tracker-1.1/apple-touch-icon.png"
         />
         <link
           rel="apple-touch-startup-image"
           media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
-          href="/workout-tracker-1.1/assets/images/pwa-icon-512.png"
+          href="/workout-tracker-1.1/apple-touch-icon.png"
         />
         <link
           rel="apple-touch-startup-image"
           media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
-          href="/workout-tracker-1.1/assets/images/pwa-icon-512.png"
+          href="/workout-tracker-1.1/apple-touch-icon.png"
         />
 
         {/* ── Android Chrome PWA ─────────────────────────────── */}
