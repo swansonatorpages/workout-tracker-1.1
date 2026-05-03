@@ -6,3 +6,9 @@ id = "CuewrtrSqH3KjsA1eHbMp"
 uri = "file://artifacts/mobile/assets/images/icon.png"
 type = "image"
 title = "workout tracker icon"
+
+[[generated]]
+id = "PmM40M_g0VnrfONoLEH7O"
+uri = "file://artifacts/mobile/assets/images/pwa-icon-512.png"
+type = "image"
+title = "cyberpunk workout app icon"
