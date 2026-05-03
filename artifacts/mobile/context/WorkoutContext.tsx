@@ -141,19 +141,15 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         sets: { ...prev.sets, [key]: { ...existing, [field]: value } },
       };
-
-      if (field === 'done' && value === true) {
-        const workout = WORKOUTS[prev.workoutId];
-        const ex = workout?.exercises.find((e) => e.id === exId);
-        if (ex && ex.restSeconds > 0) {
-          startRestTimer(exId, ex.restSeconds);
-        }
-      }
-
       persistActive(updated);
       return updated;
     });
-  }, [persistActive]);
+
+    // Start rest timer outside the state updater to always use current settings
+    if (field === 'done' && value === true && settings.restTimerDuration > 0) {
+      startRestTimer(exId, settings.restTimerDuration);
+    }
+  }, [persistActive, settings.restTimerDuration]);
 
   const addSet = useCallback((exId: string) => {
     setActiveWorkout((prev) => {
@@ -241,7 +237,7 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     return newSession;
   }, [activeWorkout, sessions]);
 
-  const startRestTimer = (exerciseId: string, seconds: number) => {
+  const startRestTimer = useCallback((exerciseId: string, seconds: number) => {
     if (timerRef.current) clearInterval(timerRef.current);
     setRestTimer({ exerciseId, totalSeconds: seconds, remaining: seconds });
     timerRef.current = setInterval(() => {
@@ -254,7 +250,7 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
         return { ...prev, remaining: prev.remaining - 1 };
       });
     }, 1000);
-  };
+  }, []);
 
   const dismissRestTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);

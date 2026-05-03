@@ -44,8 +44,10 @@ export interface ActiveWorkout {
 
 export interface AppSettings {
   units: 'lbs' | 'kg';
+  restTimerDuration: number; // seconds; 0 = off
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   units: 'lbs',
+  restTimerDuration: 90,
 };

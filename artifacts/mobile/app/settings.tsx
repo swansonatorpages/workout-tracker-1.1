@@ -13,6 +13,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useWorkout } from '@/context/WorkoutContext';
 
+const REST_OPTIONS = [
+  { label: 'Off', value: 0 },
+  { label: '30s', value: 30 },
+  { label: '60s', value: 60 },
+  { label: '90s', value: 90 },
+  { label: '2 min', value: 120 },
+  { label: '3 min', value: 180 },
+];
+
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, updateSettings, clearAllHistory } = useWorkout();
@@ -110,6 +119,42 @@ export default function SettingsScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+
+        {/* Section: Workout */}
+        <Text style={[styles.sectionLabel, { marginTop: 24 }]}>WORKOUT</Text>
+
+        <View style={styles.settingCard}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingTitle}>Rest Timer</Text>
+              <Text style={styles.settingDesc}>
+                Auto-starts after you mark a set done.
+              </Text>
+            </View>
+          </View>
+          <View style={styles.timerGrid}>
+            {REST_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.value}
+                onPress={() => updateSettings({ restTimerDuration: opt.value })}
+                style={[
+                  styles.timerOption,
+                  settings.restTimerDuration === opt.value && styles.timerOptionActive,
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.timerOptionText,
+                    settings.restTimerDuration === opt.value && styles.timerOptionTextActive,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
@@ -342,6 +387,32 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontFamily: 'Outfit_700Bold',
+  },
+  timerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 14,
+  },
+  timerOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  timerOptionActive: {
+    backgroundColor: 'rgba(0,229,255,0.12)',
+    borderColor: '#00e5ff',
+  },
+  timerOptionText: {
+    color: '#9ba1b0',
+    fontSize: 14,
+    fontFamily: 'Outfit_600SemiBold',
+  },
+  timerOptionTextActive: {
+    color: '#00e5ff',
   },
   infoRow: {
     alignItems: 'center',
