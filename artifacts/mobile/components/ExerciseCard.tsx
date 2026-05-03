@@ -31,30 +31,24 @@ interface ExerciseCardProps {
 }
 
 function AnimatedCheckbox({ done, onPress }: { done: boolean; onPress: () => void }) {
-  const scaleAnim = React.useRef(new Animated.Value(done ? 1 : 0.5)).current;
-  const opacityAnim = React.useRef(new Animated.Value(done ? 1 : 0.4)).current;
+  const scaleAnim = React.useRef(new Animated.Value(done ? 1 : 0.92)).current;
 
   useEffect(() => {
-    if (done) {
-      Animated.parallel([
-        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 200, friction: 8 }),
-        Animated.timing(opacityAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.spring(scaleAnim, { toValue: 0.9, useNativeDriver: true, tension: 200, friction: 8 }),
-        Animated.timing(opacityAnim, { toValue: 0.35, duration: 150, useNativeDriver: true }),
-      ]).start();
-    }
+    Animated.spring(scaleAnim, {
+      toValue: done ? 1 : 0.92,
+      useNativeDriver: true,
+      tension: 220,
+      friction: 8,
+    }).start();
   }, [done]);
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.checkboxTap} activeOpacity={0.7}>
+    <TouchableOpacity onPress={onPress} style={styles.checkboxTap} activeOpacity={0.6}>
       <Animated.View
         style={[
           styles.checkbox,
           done && styles.checkboxDone,
-          { transform: [{ scale: scaleAnim }], opacity: opacityAnim },
+          { transform: [{ scale: scaleAnim }] },
         ]}
       >
         {done && <Text style={styles.checkmark}>✓</Text>}
@@ -296,7 +290,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   colSet: {
-    width: 32,
+    width: 26,
     textAlign: 'center',
   },
   colNum: {
@@ -304,8 +298,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   colDone: {
-    width: 48,
+    width: 44,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   row: {
     flexDirection: 'row',
@@ -330,7 +325,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 8,
     paddingVertical: 8,
-    marginHorizontal: 4,
+    marginHorizontal: 2,
     minHeight: 40,
   },
   checkboxTap: {
@@ -340,11 +335,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 7,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(155,161,176,0.7)',
     alignItems: 'center',
     justifyContent: 'center',
   },
