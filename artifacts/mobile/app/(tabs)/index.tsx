@@ -153,13 +153,25 @@ export default function HomeScreen() {
         <WorkoutCard workoutId="upper" showOverdue={showOverdueUpper} />
         <WorkoutCard workoutId="lower" showOverdue={showOverdueLower} />
 
+        <Text style={[styles.sectionLabel, { marginTop: 8 }]}>MORE</Text>
+
         <TouchableOpacity
           onPress={() => router.push('/history')}
-          style={styles.historyLink}
-          activeOpacity={0.7}
+          style={styles.historyCard}
+          activeOpacity={0.82}
         >
-          <Feather name="clock" size={14} color="#00e5ff" />
-          <Text style={styles.historyLinkText}>View History</Text>
+          <View style={styles.historyCardIcon}>
+            <Feather name="clock" size={20} color="#00e5ff" />
+          </View>
+          <View style={styles.historyCardBody}>
+            <Text style={styles.historyCardTitle}>Workout History</Text>
+            <Text style={styles.historyCardSub}>
+              {sessions.length === 0
+                ? 'No sessions yet'
+                : `${sessions.length} session${sessions.length === 1 ? '' : 's'} logged`}
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={18} color="#9ba1b0" />
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -299,17 +311,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Outfit_600SemiBold',
   },
-  historyLink: {
+  historyCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 16,
-    marginTop: 4,
+    backgroundColor: 'rgba(31,33,42,0.85)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,229,255,0.18)',
+    padding: 16,
+    marginBottom: 14,
+    gap: 14,
   },
-  historyLinkText: {
-    color: '#00e5ff',
-    fontSize: 14,
-    fontFamily: 'Outfit_500Medium',
+  historyCardIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,229,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyCardBody: {
+    flex: 1,
+  },
+  historyCardTitle: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontFamily: 'Outfit_600SemiBold',
+    marginBottom: 2,
+  },
+  historyCardSub: {
+    color: '#9ba1b0',
+    fontSize: 13,
+    fontFamily: 'Outfit_400Regular',
   },
 });
