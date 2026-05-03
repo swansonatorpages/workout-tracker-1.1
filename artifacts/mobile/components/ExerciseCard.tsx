@@ -176,9 +176,8 @@ export function ExerciseCard({
               selectTextOnFocus
               returnKeyType="done"
             />
-            <View style={[styles.colDone, { flexDirection: 'column', alignItems: 'center' }]}>
+            <View style={styles.colDone}>
               <AnimatedCheckbox done={s.done} onPress={() => handleDone(s.setNumber, s.done)} />
-              {isNewPR && <Text style={styles.prRowBadge}>PR!</Text>}
             </View>
           </View>
         );
