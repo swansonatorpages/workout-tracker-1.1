@@ -140,11 +140,12 @@ export function ExerciseCard({
       </View>
 
       {/* Set rows */}
-      {sets.map((s) => {
+      {sets.map((s, idx) => {
         const currentLbs = parseFloat(localLbs[s.setNumber] || '0') || 0;
         const isNewPR = historicalPR !== null && currentLbs > historicalPR && currentLbs > 0;
+        const isLast = idx === sets.length - 1;
         return (
-          <View key={s.setNumber} style={[styles.row, s.done && styles.rowDone, isNewPR && styles.rowPR]}>
+          <View key={s.setNumber} style={[styles.row, isLast && styles.rowLast, s.done && styles.rowDone, isNewPR && styles.rowPR]}>
             <Text style={[styles.colSet, styles.setNum]}>{s.setNumber}</Text>
             <TextInput
               style={[styles.input, styles.colNum, isNewPR && styles.inputPR]}
@@ -255,7 +256,6 @@ const styles = StyleSheet.create({
   },
   rowPR: {
     backgroundColor: 'rgba(255,184,0,0.06)',
-    borderRadius: 8,
   },
   inputPR: {
     color: '#FFB800',
@@ -278,70 +278,74 @@ const styles = StyleSheet.create({
   tableHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
-    paddingBottom: 6,
+    paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 0,
   },
   colHead: {
     color: '#9ba1b0',
-    fontSize: 10,
-    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 11,
+    fontFamily: 'Outfit_700Bold',
     letterSpacing: 1,
   },
   colSet: {
-    width: 26,
-    textAlign: 'center',
+    width: 32,
+    textAlign: 'left',
   },
   colNum: {
     flex: 1,
     textAlign: 'center',
   },
   colDone: {
-    width: 44,
+    width: 54,
     alignItems: 'center',
     justifyContent: 'center',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 2,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  rowLast: {
+    borderBottomWidth: 0,
   },
   rowDone: {
-    backgroundColor: 'rgba(46,235,124,0.06)',
+    backgroundColor: 'rgba(46,235,124,0.04)',
   },
   setNum: {
     color: '#9ba1b0',
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: 'Outfit_500Medium',
   },
   input: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: 'Outfit_500Medium',
     textAlign: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 8,
-    paddingVertical: 8,
-    marginHorizontal: 2,
-    minHeight: 40,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginHorizontal: 4,
+    minHeight: 52,
   },
   checkboxTap: {
-    width: 44,
-    height: 44,
+    width: 54,
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkbox: {
-    width: 26,
-    height: 26,
-    borderRadius: 7,
+    width: 36,
+    height: 36,
+    borderRadius: 9,
     borderWidth: 2,
-    borderColor: 'rgba(155,161,176,0.7)',
+    borderColor: 'rgba(155,161,176,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   checkboxDone: {
     backgroundColor: '#2eeb7c',
@@ -349,7 +353,7 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     color: '#0b0c10',
-    fontSize: 14,
+    fontSize: 18,
     fontFamily: 'Outfit_700Bold',
   },
   addSetRow: {
