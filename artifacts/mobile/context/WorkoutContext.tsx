@@ -8,7 +8,13 @@ import React, {
   useState,
 } from 'react';
 
-import { STORAGE_KEYS, type ActiveWorkout, type Session } from '@/constants/storage';
+import {
+  DEFAULT_SETTINGS,
+  STORAGE_KEYS,
+  type ActiveWorkout,
+  type AppSettings,
+  type Session,
+} from '@/constants/storage';
 import { WORKOUTS } from '@/constants/workouts';
 
 interface RestTimer {
@@ -20,17 +26,21 @@ interface RestTimer {
 interface WorkoutContextType {
   sessions: Session[];
   activeWorkout: ActiveWorkout | null;
+  lastCompletedSession: Session | null;
   restTimer: RestTimer | null;
   substitutionExerciseId: string | null;
+  settings: AppSettings;
 
   startWorkout: (workoutId: string) => void;
   updateSet: (exId: string, setNum: number, field: 'lbs' | 'reps' | 'done', value: number | boolean) => void;
   addSet: (exId: string) => void;
   substituteExercise: (exId: string, customTitle: string) => void;
-  finishWorkout: () => void;
+  finishWorkout: () => Promise<Session | null>;
   dismissRestTimer: () => void;
   openSubstitutionSheet: (exId: string) => void;
   closeSubstitutionSheet: () => void;
+  clearAllHistory: () => Promise<void>;
+  updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
   getLastSessionForExercise: (exerciseId: string, workoutId: string) => {
     setsCount: number;
     reps: number;
@@ -44,8 +54,10 @@ const WorkoutContext = createContext<WorkoutContextType | null>(null);
 export function WorkoutProvider({ children }: { children: React.ReactNode }) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeWorkout, setActiveWorkout] = useState<ActiveWorkout | null>(null);
+  const [lastCompletedSession, setLastCompletedSession] = useState<Session | null>(null);
   const [restTimer, setRestTimer] = useState<RestTimer | null>(null);
   const [substitutionExerciseId, setSubstitutionExerciseId] = useState<string | null>(null);
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -57,7 +69,6 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
 
   const loadData = async () => {
     try {
-      // Migrate legacy data
       const legacy = await AsyncStorage.getItem(STORAGE_KEYS.LEGACY);
       if (legacy) {
         const legacyData = JSON.parse(legacy) as Array<Record<string, unknown>>;
@@ -77,12 +88,14 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
         await AsyncStorage.removeItem(STORAGE_KEYS.LEGACY);
       }
 
-      const [sessionsRaw, activeRaw] = await Promise.all([
+      const [sessionsRaw, activeRaw, settingsRaw] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.SESSIONS),
         AsyncStorage.getItem(STORAGE_KEYS.ACTIVE),
+        AsyncStorage.getItem(STORAGE_KEYS.SETTINGS),
       ]);
       if (sessionsRaw) setSessions(JSON.parse(sessionsRaw));
       if (activeRaw) setActiveWorkout(JSON.parse(activeRaw));
+      if (settingsRaw) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(settingsRaw) });
     } catch {}
   };
 
@@ -112,17 +125,19 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     persistActive(newActive);
   }, [persistActive]);
 
-  const updateSet = useCallback((exId: string, setNum: number, field: 'lbs' | 'reps' | 'done', value: number | boolean) => {
+  const updateSet = useCallback((
+    exId: string,
+    setNum: number,
+    field: 'lbs' | 'reps' | 'done',
+    value: number | boolean,
+  ) => {
     setActiveWorkout((prev) => {
       if (!prev) return prev;
       const key = `${exId}_${setNum}`;
       const existing = prev.sets[key] ?? { lbs: 0, reps: 0, done: false };
       const updated: ActiveWorkout = {
         ...prev,
-        sets: {
-          ...prev.sets,
-          [key]: { ...existing, [field]: value },
-        },
+        sets: { ...prev.sets, [key]: { ...existing, [field]: value } },
       };
 
       if (field === 'done' && value === true) {
@@ -145,12 +160,11 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
       const newSetNum = currentCount + 1;
       const lastKey = `${exId}_${currentCount}`;
       const lastSet = prev.sets[lastKey] ?? { lbs: 0, reps: 0, done: false };
-      const newKey = `${exId}_${newSetNum}`;
       const updated: ActiveWorkout = {
         ...prev,
         sets: {
           ...prev.sets,
-          [newKey]: { lbs: lastSet.lbs, reps: lastSet.reps, done: false },
+          [`${exId}_${newSetNum}`]: { lbs: lastSet.lbs, reps: lastSet.reps, done: false },
         },
         setCounts: { ...prev.setCounts, [exId]: newSetNum },
       };
@@ -172,10 +186,10 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     setSubstitutionExerciseId(null);
   }, [persistActive]);
 
-  const finishWorkout = useCallback(async () => {
-    if (!activeWorkout) return;
+  const finishWorkout = useCallback(async (): Promise<Session | null> => {
+    if (!activeWorkout) return null;
     const workout = WORKOUTS[activeWorkout.workoutId];
-    if (!workout) return;
+    if (!workout) return null;
 
     const exercises = workout.exercises.map((ex) => {
       const count = activeWorkout.setCounts[ex.id] ?? ex.sets;
@@ -216,11 +230,13 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
 
     const updatedSessions = [newSession, ...sessions];
     setSessions(updatedSessions);
+    setLastCompletedSession(newSession);
     await AsyncStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(updatedSessions));
     setActiveWorkout(null);
     await AsyncStorage.removeItem(STORAGE_KEYS.ACTIVE);
     if (timerRef.current) clearInterval(timerRef.current);
     setRestTimer(null);
+    return newSession;
   }, [activeWorkout, sessions]);
 
   const startRestTimer = (exerciseId: string, seconds: number) => {
@@ -251,35 +267,50 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     setSubstitutionExerciseId(null);
   }, []);
 
-  const getLastSessionForExercise = useCallback((exerciseId: string, workoutId: string) => {
-    const workoutSessions = sessions.filter((s) => s.workoutId === workoutId);
-    for (const session of workoutSessions) {
-      const ex = session.exercises.find((e) => e.exerciseId === exerciseId);
-      if (ex && ex.sets.length > 0) {
-        const doneSets = ex.sets.filter((s) => s.done);
-        if (doneSets.length === 0) continue;
-        const avgLbs = doneSets.reduce((acc, s) => acc + s.lbs, 0) / doneSets.length;
-        const avgReps = Math.round(doneSets.reduce((acc, s) => acc + s.reps, 0) / doneSets.length);
-        const date = new Date(session.completedAt);
-        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        return {
-          setsCount: doneSets.length,
-          reps: avgReps,
-          lbs: Math.round(avgLbs),
-          date: dateStr,
-        };
+  const clearAllHistory = useCallback(async () => {
+    setSessions([]);
+    await AsyncStorage.removeItem(STORAGE_KEYS.SESSIONS);
+  }, []);
+
+  const updateSettings = useCallback(async (patch: Partial<AppSettings>) => {
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
+  }, [settings]);
+
+  const getLastSessionForExercise = useCallback(
+    (exerciseId: string, workoutId: string) => {
+      const workoutSessions = sessions.filter((s) => s.workoutId === workoutId);
+      for (const session of workoutSessions) {
+        const ex = session.exercises.find((e) => e.exerciseId === exerciseId);
+        if (ex && ex.sets.length > 0) {
+          const doneSets = ex.sets.filter((s) => s.done);
+          if (doneSets.length === 0) continue;
+          const avgLbs = doneSets.reduce((acc, s) => acc + s.lbs, 0) / doneSets.length;
+          const avgReps = Math.round(doneSets.reduce((acc, s) => acc + s.reps, 0) / doneSets.length);
+          const date = new Date(session.completedAt);
+          return {
+            setsCount: doneSets.length,
+            reps: avgReps,
+            lbs: Math.round(avgLbs),
+            date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          };
+        }
       }
-    }
-    return null;
-  }, [sessions]);
+      return null;
+    },
+    [sessions],
+  );
 
   return (
     <WorkoutContext.Provider
       value={{
         sessions,
         activeWorkout,
+        lastCompletedSession,
         restTimer,
         substitutionExerciseId,
+        settings,
         startWorkout,
         updateSet,
         addSet,
@@ -288,6 +319,8 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
         dismissRestTimer,
         openSubstitutionSheet,
         closeSubstitutionSheet,
+        clearAllHistory,
+        updateSettings,
         getLastSessionForExercise,
       }}
     >

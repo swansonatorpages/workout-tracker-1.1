@@ -88,8 +88,12 @@ export default function WorkoutScreen() {
   };
 
   const handleFinish = async () => {
-    await finishWorkout();
-    router.replace('/');
+    const session = await finishWorkout();
+    if (session) {
+      router.replace('/complete');
+    } else {
+      router.replace('/');
+    }
   };
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;

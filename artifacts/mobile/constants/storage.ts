@@ -2,6 +2,7 @@ export const STORAGE_KEYS = {
   SESSIONS: 'wt_sessions',
   ACTIVE: 'wt_active',
   LEGACY: 'workoutHistory',
+  SETTINGS: 'wt_settings',
 } as const;
 
 export interface SetData {
@@ -40,3 +41,11 @@ export interface ActiveWorkout {
   substitutions: Record<string, string>;
   setCounts: Record<string, number>;
 }
+
+export interface AppSettings {
+  units: 'lbs' | 'kg';
+}
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  units: 'lbs',
+};
