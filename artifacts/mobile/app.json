@@ -20,13 +20,20 @@
       "backgroundColor": "#0b0c10"
     },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/icon.png",
+      "bundler": "metro",
+      "output": "static",
+      "name": "Workout Tracker",
+      "shortName": "Workout",
+      "description": "Track Upper & Lower Body workouts with set-by-set logging and personal records.",
+      "themeColor": "#00e5ff",
+      "backgroundColor": "#0b0c10"
     },
     "plugins": [
       [
         "expo-router",
         {
-          "origin": "https://replit.com/"
+          "origin": "https://swansonatorpages.github.io/workout-tracker-1.1/"
         }
       ],
       "expo-font",
@@ -34,7 +41,8 @@
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": true,
+      "baseUrl": "/workout-tracker-1.1/"
     }
   }
 }
