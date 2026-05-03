@@ -147,30 +147,34 @@ export function ExerciseCard({
         return (
           <View key={s.setNumber} style={[styles.row, isLast && styles.rowLast, s.done && styles.rowDone, isNewPR && styles.rowPR]}>
             <Text style={[styles.colSet, styles.setNum]}>{s.setNumber}</Text>
-            <TextInput
-              style={[styles.input, styles.colNum, isNewPR && styles.inputPR]}
-              value={localLbs[s.setNumber] ?? ''}
-              onChangeText={(t) => setLocalLbs((prev) => ({ ...prev, [s.setNumber]: t }))}
-              onBlur={() => handleLbsBlur(s.setNumber)}
-              keyboardType="decimal-pad"
-              inputMode="decimal"
-              placeholder="0"
-              placeholderTextColor="rgba(155,161,176,0.4)"
-              selectTextOnFocus
-              returnKeyType="done"
-            />
-            <TextInput
-              style={[styles.input, styles.colNum]}
-              value={localReps[s.setNumber] ?? ''}
-              onChangeText={(t) => setLocalReps((prev) => ({ ...prev, [s.setNumber]: t }))}
-              onBlur={() => handleRepsBlur(s.setNumber)}
-              keyboardType="number-pad"
-              inputMode="numeric"
-              placeholder="0"
-              placeholderTextColor="rgba(155,161,176,0.4)"
-              selectTextOnFocus
-              returnKeyType="done"
-            />
+            <View style={styles.colNum}>
+              <TextInput
+                style={[styles.input, isNewPR && styles.inputPR]}
+                value={localLbs[s.setNumber] ?? ''}
+                onChangeText={(t) => setLocalLbs((prev) => ({ ...prev, [s.setNumber]: t }))}
+                onBlur={() => handleLbsBlur(s.setNumber)}
+                keyboardType="decimal-pad"
+                inputMode="decimal"
+                placeholder="0"
+                placeholderTextColor="rgba(155,161,176,0.4)"
+                selectTextOnFocus
+                returnKeyType="done"
+              />
+            </View>
+            <View style={styles.colNum}>
+              <TextInput
+                style={styles.input}
+                value={localReps[s.setNumber] ?? ''}
+                onChangeText={(t) => setLocalReps((prev) => ({ ...prev, [s.setNumber]: t }))}
+                onBlur={() => handleRepsBlur(s.setNumber)}
+                keyboardType="number-pad"
+                inputMode="numeric"
+                placeholder="0"
+                placeholderTextColor="rgba(155,161,176,0.4)"
+                selectTextOnFocus
+                returnKeyType="done"
+              />
+            </View>
             <View style={styles.colDone}>
               <AnimatedCheckbox done={s.done} onPress={() => handleDone(s.setNumber, s.done)} />
             </View>
@@ -288,6 +292,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Outfit_700Bold',
     letterSpacing: 1,
+    textAlign: 'center',
   },
   colSet: {
     width: 32,
@@ -295,7 +300,7 @@ const styles = StyleSheet.create({
   },
   colNum: {
     flex: 1,
-    textAlign: 'center',
+    minWidth: 0,
   },
   colDone: {
     width: 54,
@@ -321,6 +326,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_500Medium',
   },
   input: {
+    width: '100%',
     color: '#ffffff',
     fontSize: 18,
     fontFamily: 'Outfit_500Medium',
@@ -328,6 +334,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.07)',
     borderRadius: 12,
     paddingVertical: 14,
+    paddingHorizontal: 4,
     marginHorizontal: 4,
     minHeight: 52,
   },
