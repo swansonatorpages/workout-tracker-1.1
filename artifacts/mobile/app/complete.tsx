@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useWorkout } from '@/context/WorkoutContext';
+import { WORKOUTS } from '@/constants/workouts';
 import { downloadSessionCSV } from '@/utils/csv';
 
 function formatVolume(lbs: number, units: 'lbs' | 'kg') {
@@ -22,7 +23,7 @@ function formatVolume(lbs: number, units: 'lbs' | 'kg') {
 
 export default function CompleteScreen() {
   const insets = useSafeAreaInsets();
-  const { lastCompletedSession, sessions, settings } = useWorkout();
+  const { lastCompletedSession, sessions, settings, getPRsForSession } = useWorkout();
   const session = lastCompletedSession;
 
   const checkScale = useRef(new Animated.Value(0.4)).current;
@@ -66,12 +67,16 @@ export default function CompleteScreen() {
     );
   }
 
-  // Volume comparison: find previous session of same workout (skip this one)
+  // Volume comparison
   const prevSession = sessions.find(
     (s) => s.workoutId === session.workoutId && s.id !== session.id,
   );
-
   const volumeDiff = prevSession ? session.totalVolume - prevSession.totalVolume : null;
+
+  // PRs
+  const prMap = getPRsForSession(session);
+  const newPRs = Object.entries(prMap).filter(([, v]) => v.isNewPR);
+  const workout = WORKOUTS[session.workoutId];
 
   // Substitutions used
   const substitutions = session.exercises.filter((e) => e.customNameUsed !== null);
@@ -144,6 +149,29 @@ export default function CompleteScreen() {
               <Text style={styles.comparisonMuted}>Same volume as last session</Text>
             )}
           </View>
+
+          {/* Personal Records */}
+          {newPRs.length > 0 && (
+            <View style={styles.prCard}>
+              <Text style={styles.prCardTitle}>🏆 Personal Records</Text>
+              {newPRs.map(([exId, pr]) => {
+                const ex = workout?.exercises.find((e) => e.id === exId);
+                const sessionEx = session.exercises.find((e) => e.exerciseId === exId);
+                const name = sessionEx?.customNameUsed ?? ex?.title ?? exId;
+                return (
+                  <View key={exId} style={styles.prRow}>
+                    <Text style={styles.prExName} numberOfLines={1}>{name}</Text>
+                    <View style={styles.prRowRight}>
+                      <Text style={styles.prNewMax}>{pr.newMax} lbs</Text>
+                      {pr.oldPR !== null && (
+                        <Text style={styles.prOldMax}>was {pr.oldPR}</Text>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
 
           {/* Substitutions */}
           {substitutions.length > 0 && (
@@ -291,6 +319,48 @@ const styles = StyleSheet.create({
   comparisonMuted: {
     color: '#9ba1b0',
     fontSize: 14,
+    fontFamily: 'Outfit_400Regular',
+  },
+  prCard: {
+    width: '100%',
+    backgroundColor: 'rgba(31,25,0,0.9)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,184,0,0.35)',
+    padding: 14,
+    marginBottom: 12,
+  },
+  prCardTitle: {
+    color: '#FFB800',
+    fontSize: 11,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: 1.2,
+    marginBottom: 10,
+  },
+  prRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  prExName: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontFamily: 'Outfit_500Medium',
+    flex: 1,
+    marginRight: 8,
+  },
+  prRowRight: {
+    alignItems: 'flex-end',
+  },
+  prNewMax: {
+    color: '#FFB800',
+    fontSize: 14,
+    fontFamily: 'Outfit_700Bold',
+  },
+  prOldMax: {
+    color: '#9ba1b0',
+    fontSize: 11,
     fontFamily: 'Outfit_400Regular',
   },
   subsCard: {

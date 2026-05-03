@@ -47,6 +47,8 @@ interface WorkoutContextType {
     lbs: number;
     date: string;
   } | null;
+  getPRForExercise: (exerciseId: string, workoutId: string) => number | null;
+  getPRsForSession: (session: Session) => Record<string, { oldPR: number | null; newMax: number; isNewPR: boolean }>;
 }
 
 const WorkoutContext = createContext<WorkoutContextType | null>(null);
@@ -302,6 +304,48 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     [sessions],
   );
 
+  const getPRForExercise = useCallback((exerciseId: string, _workoutId: string): number | null => {
+    let maxLbs: number | null = null;
+    for (const session of sessions) {
+      const ex = session.exercises.find((e) => e.exerciseId === exerciseId);
+      if (ex) {
+        for (const s of ex.sets) {
+          if (s.done && s.lbs > 0) {
+            if (maxLbs === null || s.lbs > maxLbs) maxLbs = s.lbs;
+          }
+        }
+      }
+    }
+    return maxLbs;
+  }, [sessions]);
+
+  const getPRsForSession = useCallback((session: Session) => {
+    const result: Record<string, { oldPR: number | null; newMax: number; isNewPR: boolean }> = {};
+    const priorSessions = sessions.filter(
+      (s) => s.workoutId === session.workoutId && s.id !== session.id,
+    );
+    for (const ex of session.exercises) {
+      const doneSets = ex.sets.filter((s) => s.done && s.lbs > 0);
+      if (doneSets.length === 0) continue;
+      const newMax = Math.max(...doneSets.map((s) => s.lbs));
+      let oldPR: number | null = null;
+      for (const os of priorSessions) {
+        const oex = os.exercises.find((e) => e.exerciseId === ex.exerciseId);
+        if (oex) {
+          for (const s of oex.sets) {
+            if (s.done && s.lbs > 0 && (oldPR === null || s.lbs > oldPR)) oldPR = s.lbs;
+          }
+        }
+      }
+      result[ex.exerciseId] = {
+        oldPR,
+        newMax,
+        isNewPR: oldPR !== null && newMax > oldPR,
+      };
+    }
+    return result;
+  }, [sessions]);
+
   return (
     <WorkoutContext.Provider
       value={{
@@ -322,6 +366,8 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
         clearAllHistory,
         updateSettings,
         getLastSessionForExercise,
+        getPRForExercise,
+        getPRsForSession,
       }}
     >
       {children}

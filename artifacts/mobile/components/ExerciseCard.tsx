@@ -73,7 +73,7 @@ export function ExerciseCard({
   isSuperset = false,
   onOpenSubstitution,
 }: ExerciseCardProps) {
-  const { updateSet, addSet, getLastSessionForExercise } = useWorkout();
+  const { updateSet, addSet, getLastSessionForExercise, getPRForExercise } = useWorkout();
 
   const [localLbs, setLocalLbs] = useState<Record<number, string>>({});
   const [localReps, setLocalReps] = useState<Record<number, string>>({});
@@ -90,6 +90,7 @@ export function ExerciseCard({
   }, [sets.length]);
 
   const lastSession = getLastSessionForExercise(exerciseId, workoutId);
+  const historicalPR = getPRForExercise(exerciseId, workoutId);
   const allDone = sets.length > 0 && sets.every((s) => s.done);
   const displayTitle = customTitle ?? title;
 
@@ -124,12 +125,17 @@ export function ExerciseCard({
       {/* Coaching note */}
       <Text style={styles.desc}>{desc}</Text>
 
-      {/* Last session line */}
-      <Text style={styles.lastSession}>
-        {lastSession
-          ? `Last: ${lastSession.setsCount}×${lastSession.reps} @ ${lastSession.lbs} lbs · ${lastSession.date}`
-          : 'First time — no history yet'}
-      </Text>
+      {/* Last session + PR line */}
+      <View style={styles.historyRow}>
+        <Text style={styles.lastSession}>
+          {lastSession
+            ? `Last: ${lastSession.setsCount}×${lastSession.reps} @ ${lastSession.lbs} lbs · ${lastSession.date}`
+            : 'First time — no history yet'}
+        </Text>
+        {historicalPR !== null && (
+          <Text style={styles.prLine}>🏆 {historicalPR} lbs</Text>
+        )}
+      </View>
 
       {/* Table header */}
       <View style={styles.tableHeader}>
@@ -140,38 +146,43 @@ export function ExerciseCard({
       </View>
 
       {/* Set rows */}
-      {sets.map((s) => (
-        <View key={s.setNumber} style={[styles.row, s.done && styles.rowDone]}>
-          <Text style={[styles.colSet, styles.setNum]}>{s.setNumber}</Text>
-          <TextInput
-            style={[styles.input, styles.colNum]}
-            value={localLbs[s.setNumber] ?? ''}
-            onChangeText={(t) => setLocalLbs((prev) => ({ ...prev, [s.setNumber]: t }))}
-            onBlur={() => handleLbsBlur(s.setNumber)}
-            keyboardType="decimal-pad"
-            inputMode="decimal"
-            placeholder="0"
-            placeholderTextColor="rgba(155,161,176,0.4)"
-            selectTextOnFocus
-            returnKeyType="done"
-          />
-          <TextInput
-            style={[styles.input, styles.colNum]}
-            value={localReps[s.setNumber] ?? ''}
-            onChangeText={(t) => setLocalReps((prev) => ({ ...prev, [s.setNumber]: t }))}
-            onBlur={() => handleRepsBlur(s.setNumber)}
-            keyboardType="number-pad"
-            inputMode="numeric"
-            placeholder="0"
-            placeholderTextColor="rgba(155,161,176,0.4)"
-            selectTextOnFocus
-            returnKeyType="done"
-          />
-          <View style={styles.colDone}>
-            <AnimatedCheckbox done={s.done} onPress={() => handleDone(s.setNumber, s.done)} />
+      {sets.map((s) => {
+        const currentLbs = parseFloat(localLbs[s.setNumber] || '0') || 0;
+        const isNewPR = historicalPR !== null && currentLbs > historicalPR && currentLbs > 0;
+        return (
+          <View key={s.setNumber} style={[styles.row, s.done && styles.rowDone, isNewPR && styles.rowPR]}>
+            <Text style={[styles.colSet, styles.setNum]}>{s.setNumber}</Text>
+            <TextInput
+              style={[styles.input, styles.colNum, isNewPR && styles.inputPR]}
+              value={localLbs[s.setNumber] ?? ''}
+              onChangeText={(t) => setLocalLbs((prev) => ({ ...prev, [s.setNumber]: t }))}
+              onBlur={() => handleLbsBlur(s.setNumber)}
+              keyboardType="decimal-pad"
+              inputMode="decimal"
+              placeholder="0"
+              placeholderTextColor="rgba(155,161,176,0.4)"
+              selectTextOnFocus
+              returnKeyType="done"
+            />
+            <TextInput
+              style={[styles.input, styles.colNum]}
+              value={localReps[s.setNumber] ?? ''}
+              onChangeText={(t) => setLocalReps((prev) => ({ ...prev, [s.setNumber]: t }))}
+              onBlur={() => handleRepsBlur(s.setNumber)}
+              keyboardType="number-pad"
+              inputMode="numeric"
+              placeholder="0"
+              placeholderTextColor="rgba(155,161,176,0.4)"
+              selectTextOnFocus
+              returnKeyType="done"
+            />
+            <View style={[styles.colDone, { flexDirection: 'column', alignItems: 'center' }]}>
+              <AnimatedCheckbox done={s.done} onPress={() => handleDone(s.setNumber, s.done)} />
+              {isNewPR && <Text style={styles.prRowBadge}>PR!</Text>}
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
 
       {/* Add Set row */}
       <TouchableOpacity onPress={() => addSet(exerciseId)} style={styles.addSetRow} activeOpacity={0.7}>
@@ -237,12 +248,39 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 8,
   },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  prLine: {
+    color: '#FFB800',
+    fontSize: 11,
+    fontFamily: 'Outfit_600SemiBold',
+    marginLeft: 8,
+  },
+  rowPR: {
+    backgroundColor: 'rgba(255,184,0,0.06)',
+    borderRadius: 8,
+  },
+  inputPR: {
+    color: '#FFB800',
+    backgroundColor: 'rgba(255,184,0,0.1)',
+  },
+  prRowBadge: {
+    color: '#FFB800',
+    fontSize: 9,
+    fontFamily: 'Outfit_700Bold',
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
   lastSession: {
     color: '#9ba1b0',
     fontSize: 12,
     fontFamily: 'Outfit_400Regular',
-    marginBottom: 12,
     fontStyle: 'italic',
+    flex: 1,
   },
   tableHeader: {
     flexDirection: 'row',
