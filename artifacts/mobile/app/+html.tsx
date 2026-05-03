@@ -94,6 +94,13 @@ export default function Root({ children }: PropsWithChildren) {
               user-select: none;
             }
 
+            /* Hard-lock horizontal overflow — prevents page scrolling right
+               when an input is focused or the keyboard opens */
+            html, body, #root {
+              overflow-x: hidden;
+              max-width: 100%;
+            }
+
             /* Re-enable text selection inside inputs */
             input, textarea {
               -webkit-user-select: text;
@@ -101,6 +108,13 @@ export default function Root({ children }: PropsWithChildren) {
               /* Remove iOS default styling (rounded inputs, inner shadow) */
               -webkit-appearance: none;
               border-radius: 0;
+            }
+
+            /* Kill the blue focus ring iOS Safari draws around inputs —
+               it overflows the element bounds and triggers horizontal scroll */
+            input:focus, textarea:focus {
+              outline: none !important;
+              box-shadow: none !important;
             }
 
             /* Removes the 300ms tap delay on older iOS — instant response */
