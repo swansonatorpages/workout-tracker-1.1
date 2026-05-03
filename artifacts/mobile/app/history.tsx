@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Platform,
@@ -15,9 +15,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConsistencyCalendar } from '@/components/ConsistencyCalendar';
 import { useWorkout } from '@/context/WorkoutContext';
 import { downloadSessionCSV } from '@/utils/csv';
+import { WORKOUTS } from '@/constants/workouts';
 import type { Session } from '@/constants/storage';
 
 type Filter = 'all' | 'upper' | 'lower';
+type View = 'sessions' | 'records';
 
 function formatVolume(lbs: number, units: 'lbs' | 'kg') {
   const val = units === 'kg' ? Math.round(lbs / 2.205) : lbs;
@@ -34,13 +36,12 @@ function formatTime(iso: string) {
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
-function SessionRow({
-  session,
-  units,
-}: {
-  session: Session;
-  units: 'lbs' | 'kg';
-}) {
+function formatShortDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function SessionRow({ session, units }: { session: Session; units: 'lbs' | 'kg' }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -105,7 +106,6 @@ function SessionRow({
               </View>
             ))
           )}
-
           <TouchableOpacity
             style={styles.csvBtn}
             onPress={() => downloadSessionCSV(session)}
@@ -120,9 +120,112 @@ function SessionRow({
   );
 }
 
+interface PREntry {
+  exerciseId: string;
+  title: string;
+  prLbs: number | null;
+  prDate: string | null;
+  customNameUsed: string | null;
+  sessionCount: number;
+}
+
+function PRsView({ sessions, units }: { sessions: Session[]; units: 'lbs' | 'kg' }) {
+  const prsByExercise = useMemo(() => {
+    const map: Record<string, { maxLbs: number; date: string; customName: string | null; count: number }> = {};
+
+    for (const session of sessions) {
+      for (const ex of session.exercises) {
+        const doneSets = ex.sets.filter((s) => s.done && s.lbs > 0);
+        if (doneSets.length === 0) continue;
+        const maxForSession = Math.max(...doneSets.map((s) => s.lbs));
+        const existing = map[ex.exerciseId];
+        if (!existing || maxForSession > existing.maxLbs) {
+          map[ex.exerciseId] = {
+            maxLbs: maxForSession,
+            date: session.completedAt,
+            customName: ex.customNameUsed,
+            count: (existing?.count ?? 0) + 1,
+          };
+        } else {
+          map[ex.exerciseId] = { ...existing, count: existing.count + 1 };
+        }
+      }
+    }
+
+    return map;
+  }, [sessions]);
+
+  const hasPRs = Object.values(prsByExercise).some((v) => v.maxLbs > 0);
+
+  if (!hasPRs) {
+    return (
+      <View style={styles.emptyState}>
+        <Text style={styles.prEmptyIcon}>🏆</Text>
+        <Text style={styles.emptyText}>No records yet</Text>
+        <Text style={styles.prEmptyHint}>Complete a workout to set your first PRs</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View>
+      {Object.values(WORKOUTS).map((workout) => (
+        <View key={workout.id} style={styles.prWorkoutSection}>
+          <Text style={styles.sectionLabel}>{workout.title.toUpperCase()}</Text>
+          <View style={styles.prCard}>
+            {workout.exercises.map((exercise, idx) => {
+              const pr = prsByExercise[exercise.id];
+              const isLast = idx === workout.exercises.length - 1;
+              const hasPR = pr && pr.maxLbs > 0;
+              const displayWeight = hasPR
+                ? units === 'kg'
+                  ? `${Math.round(pr.maxLbs / 2.205)} kg`
+                  : `${pr.maxLbs} lbs`
+                : null;
+
+              return (
+                <View key={exercise.id} style={[styles.prRow, !isLast && styles.prRowBorder]}>
+                  <View style={styles.prRowLeft}>
+                    <Text style={styles.prExName} numberOfLines={1}>
+                      {exercise.title}
+                    </Text>
+                    {hasPR && pr.customName && (
+                      <Text style={styles.prCustomName} numberOfLines={1}>
+                        ↳ done as {pr.customName}
+                      </Text>
+                    )}
+                    {hasPR && pr.date ? (
+                      <Text style={styles.prDate}>Set {formatShortDate(pr.date)}</Text>
+                    ) : (
+                      <Text style={styles.prNever}>Not done yet</Text>
+                    )}
+                  </View>
+                  <View style={styles.prRowRight}>
+                    {hasPR ? (
+                      <>
+                        <Text style={styles.prWeight}>{displayWeight}</Text>
+                        <View style={styles.prTrophy}>
+                          <Text style={styles.prTrophyText}>🏆</Text>
+                        </View>
+                      </>
+                    ) : (
+                      <Text style={styles.prDash}>—</Text>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const { sessions, clearAllHistory, settings } = useWorkout();
+  const [view, setView] = useState<View>('sessions');
   const [filter, setFilter] = useState<Filter>('all');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const confirmAnim = useRef(new Animated.Value(0)).current;
@@ -177,6 +280,26 @@ export default function HistoryScreen() {
         <View style={{ width: 40 }} />
       </View>
 
+      {/* Top tab switcher */}
+      <View style={styles.tabRow}>
+        <TouchableOpacity
+          style={[styles.tab, view === 'sessions' && styles.tabActive]}
+          onPress={() => setView('sessions')}
+          activeOpacity={0.7}
+        >
+          <Feather name="clock" size={14} color={view === 'sessions' ? '#00e5ff' : '#9ba1b0'} />
+          <Text style={[styles.tabText, view === 'sessions' && styles.tabTextActive]}>Sessions</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, view === 'records' && styles.tabActive]}
+          onPress={() => setView('records')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.tabIcon}>🏆</Text>
+          <Text style={[styles.tabText, view === 'records' && styles.tabTextActive]}>Records</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -185,84 +308,90 @@ export default function HistoryScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Calendar */}
-        <View style={styles.calendarSection}>
-          <Text style={styles.sectionLabel}>8-WEEK CONSISTENCY</Text>
-          <ConsistencyCalendar sessions={sessions} units={settings.units} />
-        </View>
+        {view === 'sessions' ? (
+          <>
+            {/* Calendar */}
+            <View style={styles.calendarSection}>
+              <Text style={styles.sectionLabel}>8-WEEK CONSISTENCY</Text>
+              <ConsistencyCalendar sessions={sessions} units={settings.units} />
+            </View>
 
-        <View style={styles.divider} />
+            <View style={styles.divider} />
 
-        {/* Filter pills */}
-        <View style={styles.filterRow}>
-          {(['all', 'upper', 'lower'] as Filter[]).map((f) => (
-            <TouchableOpacity
-              key={f}
-              onPress={() => setFilter(f)}
-              style={[styles.filterPill, filter === f && styles.filterPillActive]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.filterPillText, filter === f && styles.filterPillTextActive]}>
-                {f.charAt(0).toUpperCase() + f.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+            {/* Filter pills */}
+            <View style={styles.filterRow}>
+              {(['all', 'upper', 'lower'] as Filter[]).map((f) => (
+                <TouchableOpacity
+                  key={f}
+                  onPress={() => setFilter(f)}
+                  style={[styles.filterPill, filter === f && styles.filterPillActive]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterPillText, filter === f && styles.filterPillTextActive]}>
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-        {/* Session list */}
-        {filtered.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Feather name="inbox" size={40} color="rgba(155,161,176,0.3)" />
-            <Text style={styles.emptyText}>No sessions yet</Text>
-          </View>
-        ) : (
-          filtered.map((session) => (
-            <SessionRow key={session.id} session={session} units={settings.units} />
-          ))
-        )}
-
-        {/* Clear history */}
-        {sessions.length > 0 && (
-          <View style={styles.clearSection}>
-            {showClearConfirm && (
-              <Animated.View
-                style={[
-                  styles.confirmBanner,
-                  {
-                    opacity: confirmAnim,
-                    transform: [
-                      {
-                        translateY: confirmAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [16, 0],
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              >
-                <Text style={styles.confirmText}>
-                  Delete all {sessions.length} sessions? This cannot be undone.
-                </Text>
-                <View style={styles.confirmBtns}>
-                  <TouchableOpacity onPress={handleClearCancel} style={styles.cancelBtn} activeOpacity={0.7}>
-                    <Text style={styles.cancelBtnText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handleClearConfirm} style={styles.deleteBtn} activeOpacity={0.7}>
-                    <Text style={styles.deleteBtnText}>Delete All</Text>
-                  </TouchableOpacity>
-                </View>
-              </Animated.View>
+            {/* Session list */}
+            {filtered.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Feather name="inbox" size={40} color="rgba(155,161,176,0.3)" />
+                <Text style={styles.emptyText}>No sessions yet</Text>
+              </View>
+            ) : (
+              filtered.map((session) => (
+                <SessionRow key={session.id} session={session} units={settings.units} />
+              ))
             )}
-            <TouchableOpacity
-              onPress={handleClearPress}
-              style={styles.clearBtn}
-              activeOpacity={0.7}
-            >
-              <Feather name="trash-2" size={14} color="#ff3b30" />
-              <Text style={styles.clearBtnText}>Clear All History</Text>
-            </TouchableOpacity>
-          </View>
+
+            {/* Clear history */}
+            {sessions.length > 0 && (
+              <View style={styles.clearSection}>
+                {showClearConfirm && (
+                  <Animated.View
+                    style={[
+                      styles.confirmBanner,
+                      {
+                        opacity: confirmAnim,
+                        transform: [
+                          {
+                            translateY: confirmAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [16, 0],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  >
+                    <Text style={styles.confirmText}>
+                      Delete all {sessions.length} sessions? This cannot be undone.
+                    </Text>
+                    <View style={styles.confirmBtns}>
+                      <TouchableOpacity onPress={handleClearCancel} style={styles.cancelBtn} activeOpacity={0.7}>
+                        <Text style={styles.cancelBtnText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={handleClearConfirm} style={styles.deleteBtn} activeOpacity={0.7}>
+                        <Text style={styles.deleteBtnText}>Delete All</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </Animated.View>
+                )}
+                <TouchableOpacity
+                  onPress={handleClearPress}
+                  style={styles.clearBtn}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="trash-2" size={14} color="#ff3b30" />
+                  <Text style={styles.clearBtnText}>Clear All History</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
+        ) : (
+          <PRsView sessions={sessions} units={settings.units} />
         )}
       </ScrollView>
     </View>
@@ -313,6 +442,38 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_600SemiBold',
     textAlign: 'center',
   },
+  tabRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    padding: 3,
+    gap: 2,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  tabActive: {
+    backgroundColor: 'rgba(0,229,255,0.12)',
+  },
+  tabIcon: {
+    fontSize: 13,
+  },
+  tabText: {
+    color: '#9ba1b0',
+    fontSize: 13,
+    fontFamily: 'Outfit_600SemiBold',
+  },
+  tabTextActive: {
+    color: '#00e5ff',
+  },
   scroll: {
     flex: 1,
   },
@@ -361,8 +522,8 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 48,
-    gap: 12,
+    paddingVertical: 56,
+    gap: 10,
   },
   emptyText: {
     color: '#9ba1b0',
@@ -525,5 +686,82 @@ const styles = StyleSheet.create({
     color: '#ff3b30',
     fontSize: 14,
     fontFamily: 'Outfit_600SemiBold',
+  },
+  prWorkoutSection: {
+    marginBottom: 24,
+  },
+  prCard: {
+    backgroundColor: 'rgba(31,33,42,0.85)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  },
+  prRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  prRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  prRowLeft: {
+    flex: 1,
+    marginRight: 12,
+  },
+  prExName: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontFamily: 'Outfit_600SemiBold',
+    marginBottom: 2,
+  },
+  prCustomName: {
+    color: '#00e5ff',
+    fontSize: 11,
+    fontFamily: 'Outfit_400Regular',
+    marginBottom: 2,
+  },
+  prDate: {
+    color: '#9ba1b0',
+    fontSize: 11,
+    fontFamily: 'Outfit_400Regular',
+  },
+  prNever: {
+    color: 'rgba(155,161,176,0.45)',
+    fontSize: 11,
+    fontFamily: 'Outfit_400Regular',
+    fontStyle: 'italic',
+  },
+  prRowRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  prWeight: {
+    color: '#FFB800',
+    fontSize: 16,
+    fontFamily: 'Outfit_700Bold',
+  },
+  prTrophy: {
+    alignItems: 'center',
+  },
+  prTrophyText: {
+    fontSize: 12,
+  },
+  prDash: {
+    color: 'rgba(155,161,176,0.35)',
+    fontSize: 18,
+    fontFamily: 'Outfit_300Light',
+  },
+  prEmptyIcon: {
+    fontSize: 44,
+    marginBottom: 4,
+  },
+  prEmptyHint: {
+    color: 'rgba(155,161,176,0.6)',
+    fontSize: 13,
+    fontFamily: 'Outfit_400Regular',
+    textAlign: 'center',
   },
 });
