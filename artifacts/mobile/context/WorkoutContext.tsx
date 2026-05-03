@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { Platform, Vibration } from 'react-native';
 
 import {
   DEFAULT_SETTINGS,
@@ -61,11 +62,13 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
   const [substitutionExerciseId, setSubstitutionExerciseId] = useState<string | null>(null);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const doneTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     loadData();
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (doneTimeoutRef.current) clearTimeout(doneTimeoutRef.current);
     };
   }, []);
 
@@ -233,13 +236,49 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
     setActiveWorkout(null);
     await AsyncStorage.removeItem(STORAGE_KEYS.ACTIVE);
     if (timerRef.current) clearInterval(timerRef.current);
+    if (doneTimeoutRef.current) clearTimeout(doneTimeoutRef.current);
     setRestTimer(null);
     return newSession;
   }, [activeWorkout, sessions]);
 
+  const triggerTimerDone = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      // Native: double-pulse vibration
+      Vibration.vibrate([0, 120, 80, 120]);
+    } else if (typeof window !== 'undefined') {
+      // Web (iOS Safari PWA): Web Audio API — two rising tones
+      try {
+        const AudioCtx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const ctx = new AudioCtx();
+        const playTone = (freq: number, start: number, dur: number) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, start);
+          gain.gain.setValueAtTime(0, start);
+          gain.gain.linearRampToValueAtTime(0.22, start + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
+          osc.start(start);
+          osc.stop(start + dur);
+        };
+        playTone(784, ctx.currentTime, 0.14);       // G5
+        playTone(1047, ctx.currentTime + 0.16, 0.22); // C6
+      } catch {
+        // Audio not available — silent fallback
+      }
+    }
+  }, []);
+
   const startRestTimer = useCallback((exerciseId: string, seconds: number) => {
     if (timerRef.current) clearInterval(timerRef.current);
+    if (doneTimeoutRef.current) clearTimeout(doneTimeoutRef.current);
     setRestTimer({ exerciseId, totalSeconds: seconds, remaining: seconds });
+    // Schedule the done sound/haptic to fire exactly when the timer expires
+    doneTimeoutRef.current = setTimeout(() => {
+      triggerTimerDone();
+    }, seconds * 1000);
     timerRef.current = setInterval(() => {
       setRestTimer((prev) => {
         if (!prev) return null;
@@ -250,10 +289,11 @@ export function WorkoutProvider({ children }: { children: React.ReactNode }) {
         return { ...prev, remaining: prev.remaining - 1 };
       });
     }, 1000);
-  }, []);
+  }, [triggerTimerDone]);
 
   const dismissRestTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
+    if (doneTimeoutRef.current) clearTimeout(doneTimeoutRef.current);
     setRestTimer(null);
   }, []);
 
